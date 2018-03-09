@@ -1,0 +1,22 @@
+ Volume in drive C is OS
+ Volume Serial Number is E6DD-7A13
+
+ Directory of C:\
+
+04/10/2017  11:37 PM    <DIR>          Apps
+04/11/2017  01:04 AM    <DIR>          Dell
+04/10/2017  11:50 PM    <DIR>          Drivers
+04/10/2017  11:34 PM    <DIR>          eeColorTables
+10/13/2017  06:57 PM    <DIR>          HashiCorp
+10/18/2017  05:13 PM    <DIR>          Intel
+01/18/2018  09:10 PM    <DIR>          PerfLogs
+02/19/2018  07:32 PM    <DIR>          Program Files
+02/19/2018  07:29 PM    <DIR>          Program Files (x86)
+04/10/2017  11:37 PM               202 StartMenu.ini
+01/18/2018  09:04 AM    <DIR>          Users
+02/26/2018  08:03 PM    <DIR>          Windows
+01/09/2018  07:59 PM                35 windows-version.txt
+02/01/2018  07:52 AM    <DIR>          Windows.old
+09/25/2017  07:56 PM    <DIR>          Windows10Upgrade
+               2 File(s)            237 bytes
+              13 Dir(s)   8,991,678,464 bytes free
