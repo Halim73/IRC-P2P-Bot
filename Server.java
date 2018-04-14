@@ -1,12 +1,14 @@
 import javax.imageio.ImageIO;
+import javax.net.ssl.*;
 import java.awt.*;
 import java.awt.event.InputEvent;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.*;
+import java.security.KeyStore;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.concurrent.*;
-import java.util.stream.Stream;
 
 public class Server {
     private String currentLine = "";
@@ -40,7 +42,7 @@ public class Server {
                 System.out.println("waiting for clients at "+server.getLocalPort()+"...");
                 while(true){
                     Socket sock = server.accept();
-                    System.out.println(id+" successfully connected to socket "+sock.getPort());
+                    System.out.println("new successful connection to socket "+sock.getPort());
 
                     new echo(sock,id);
                 }
@@ -81,7 +83,15 @@ public class Server {
                         output.println(Integer.toString(sock.getPort()));
                         output.flush();
                     }
+                    if(temp.split(" ")[0].contains("p2p")){
+                        final String bro = temp.split(" ")[1];
+                        final int spot = Integer.parseInt(temp.split(" ")[2]);
+                        System.out.println("p2p'ing");
 
+                        Runnable linkage = connectToFriends(bro,spot);
+
+                        jobs.submit(linkage);
+                    }
                     if(temp.split(" ")[0].contains("senpai")){
                         final String senpai = temp.split(" ")[1];
                         final int location = Integer.parseInt(temp.split(" ")[2]);
@@ -89,9 +99,8 @@ public class Server {
                         System.out.println("talking to senpai");
 
                         Runnable commands = linkWithSenpai(senpai,location);
-                        //commands.run();
-                        Thread thread = new Thread(commands);
-                        jobs.submit(thread);
+
+                        jobs.submit(commands);
                     }
                     if(temp.contains("retrieve")){
                         output.println(buff);
@@ -110,7 +119,7 @@ public class Server {
                 }
             }catch(Exception e){
                 e.printStackTrace();
-            }finally{
+             }finally{
                 try{
                     sock.close();
                 }catch(IOException e){
@@ -131,9 +140,57 @@ public class Server {
             }
             return null;
         }
+        public Runnable connectToFriends(String friend, int location){
+            Runnable homie = ()->{
+                try{
+                    Socket connect = new Socket(friend,location);
+
+                    DataInputStream in = new DataInputStream(connect.getInputStream());
+                    DataOutputStream output = new DataOutputStream(connect.getOutputStream());
+
+                    while(in.readByte() != -1){
+                        String toDo = in.readUTF();
+                        if(toDo.contains("socket")){
+                            output.writeUTF(Integer.toString(connect.getPort()));
+                            output.flush();
+                        }
+
+                        if(toDo.split(" ")[0].contains("senpai")){
+                            final String senpai = toDo.split(" ")[1];
+                            final int loc = Integer.parseInt(toDo.split(" ")[2]);
+
+                            System.out.println("talking to senpai");
+
+                            Runnable commands = linkWithSenpai(senpai,loc);
+
+                            jobs.submit(commands);
+                        }
+                        if(toDo.contains("details")){
+                            output.writeUTF(getServerDetails());
+                            output.flush();
+                        }
+                        if(toDo.contains( "close")){
+                            output.writeUTF("turning server off");
+                            output.flush();
+                            output.close();
+                            System.exit(0);
+                        }
+                    }
+                }catch(Exception e){
+                    e.printStackTrace();
+                }
+            };
+            return homie;
+        }
         public Runnable linkWithSenpai(String senpai,int location){
             Runnable commands = ()->{
                 try{
+                    /*SSLSocketFactory secure = (SSLSocketFactory) SSLSocketFactory.getDefault();
+                    SSLSocket connect = (SSLSocket)secure.createSocket(senpai,location);
+                    String[]cipherSuites = connect.getSupportedCipherSuites();
+                    connect.setEnabledCipherSuites(cipherSuites);
+                    //connect.startHandshake();
+                    */
                     Socket connect = new Socket(senpai,location);
 
                     DataInputStream in = new DataInputStream(connect.getInputStream());
@@ -218,16 +275,19 @@ public class Server {
                                 }
                                 break;
                             case 4:
+                                System.out.println("moving mouse");
                                 int x = in.readInt();
                                 int y = in.readInt();
 
-                                out.writeByte(4);
+                                //out.writeByte(4);
 
                                 user.mouseMove(x,y);
 
                                 out.writeByte(999);
+                                System.out.println("moving mouse done");
                                 break;
                             case 5:
+                                System.out.println("clicking mouse");
                                 int keycode = in.readInt();
                                 out.writeByte(5);
                                 if(keycode == 1) {
@@ -241,19 +301,59 @@ public class Server {
                                 }else{
                                     out.writeByte(-999);
                                 }
+                                System.out.println("clicking mouse done");
+                                break;
+                            case 6:
+                                out.writeByte(6);
+                                System.out.println("preparing to receive file");
+                                String fileName = in.readUTF();
 
+                                File text = new File(fileName);
+                                FileOutputStream writer = new FileOutputStream(text);
+                                int length = in.readInt();
+                                if(length > 0){
+                                    byte[]inFile = new byte[length];
+                                    in.readFully(inFile);
+                                    writer.write(inFile);
+                                    System.out.println("getting file done");
+                                }
+                                break;
+                            case 7:
+                                System.out.println("getting ready to send file ");
+
+                                out.writeByte(7);//flag
+
+                                String toSend = in.readUTF();
+                                read = new File(toSend);
+                                fileStream = new BufferedInputStream(new FileInputStream(read));
+
+                                buff = new byte[1024];
+                                fileStream.read(buff,0,buff.length);
+
+                                if(buff.length > 0){
+                                    System.out.println("sending "+read.getAbsolutePath());
+                                    out.writeInt(buff.length);
+                                    out.write(buff,0,buff.length);
+                                    System.out.println(read.getAbsolutePath()+" sent");
+                                    fileStream.close();
+                                }else{
+                                    System.out.println("file not sent");
+                                }
                                 break;
                         }
                     }
                     //in.close();
                     //out.close();
                     //sock.close();
+                    System.exit(0);
                 }catch(Exception e){
                     e.printStackTrace();
+                    System.exit(0);
                 }
             };
             return commands;
         }
+
         public String getServerDetails(){
             String details =
                     " system properties "+System.getProperty("os.name")+

