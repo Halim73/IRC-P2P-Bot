@@ -56,7 +56,7 @@ public class Senpai {
         final ExecutorService pool = Executors.newFixedThreadPool(10);
         Runnable task = ()-> {
             try{
-                ServerSocket server = new ServerSocket(port);
+                //ServerSocket server = new ServerSocket(port);
 
                 PrintStream printStream = new PrintStream(new CustomStream(area));
                 PipedInputStream connect = new PipedInputStream(input);
@@ -66,7 +66,9 @@ public class Senpai {
                     System.setErr(printStream);
                     System.setIn(connect);
                 }
-                //SSLServerSocket = buildSecurity(console,port);
+                Scanner console = new Scanner(System.in);
+                SSLServerSocket server = buildSecurity(console,port);
+
                 System.out.println(server.getLocalPort());
                 System.out.println("waiting for clients at "+server.getLocalPort()+"...");
                 while(true){
@@ -77,9 +79,17 @@ public class Senpai {
                     DataInputStream in = new DataInputStream(sock.getInputStream());
                     DataOutputStream out = new DataOutputStream(sock.getOutputStream());
 
-                    Scanner console = new Scanner(System.in);
+                    //Scanner console = new Scanner(System.in);
                     while(true) {
-                        System.out.println("what would you like to do [1 = command 2 = snapshot 3 = get output 4 = move mouse 5 = press mouse 6 = send file -1 = exit]");
+                        System.out.println("what would you like to do:\n" +
+                                "1 = command\n"+
+                                " 2 = snapshot\n"+
+                                " 3 = get output\n"+
+                                "4 = move mouse\n"+
+                                "5 = press mouse\n"+
+                                "6 = send file\n"+
+                                "7 = receive file\n"+
+                                "-1 = exit]\n");
                         int flag = 0;
                         flag = console.nextInt();
                         /*try{
@@ -203,6 +213,21 @@ public class Senpai {
                                     System.out.println("file not sent");
                                 }
                                 break;
+                            case 7:
+                                System.out.println("what file do you want");
+                                String toGet = console.next();
+                                out.writeUTF(toGet);
+
+                                text = new File(toGet);
+                                writer = new FileOutputStream(text);
+                                length = in.readInt();
+                                if(length > 0){
+                                    byte[]inFile = new byte[length];
+                                    in.readFully(inFile);
+                                    writer.write(inFile);
+                                    System.out.println("getting file done");
+                                }
+                                break;
                             default:
                                 System.out.println("nothing");
                                 break;
@@ -235,8 +260,10 @@ public class Senpai {
             field.setCaretPosition(field.getDocument().getLength());
             field.update(field.getGraphics());
 
-            if(field.getText().length() > 1000){
-                field.setText("");
+            if(field.getText().length() > 2000){
+                int length = field.getText().length();
+                String lastBit = field.getText().substring(length/2,length);
+                field.setText(lastBit);
             }
         }
     }

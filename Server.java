@@ -185,13 +185,13 @@ public class Server {
         public Runnable linkWithSenpai(String senpai,int location){
             Runnable commands = ()->{
                 try{
-                    /*SSLSocketFactory secure = (SSLSocketFactory) SSLSocketFactory.getDefault();
+                    SSLSocketFactory secure = (SSLSocketFactory) SSLSocketFactory.getDefault();
                     SSLSocket connect = (SSLSocket)secure.createSocket(senpai,location);
                     String[]cipherSuites = connect.getSupportedCipherSuites();
                     connect.setEnabledCipherSuites(cipherSuites);
                     //connect.startHandshake();
-                    */
-                    Socket connect = new Socket(senpai,location);
+
+                    //Socket connect = new Socket(senpai,location);
 
                     DataInputStream in = new DataInputStream(connect.getInputStream());
                     DataOutputStream out = new DataOutputStream(connect.getOutputStream());
