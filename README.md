@@ -1,4 +1,6 @@
 # IRC-P2P-Bot
+
+
 usage: Plaintext communications
   1.) run TestBotMain from command line
   2.) run SenpaiApp from second command line
@@ -8,6 +10,8 @@ usage: Plaintext communications
   6.) tell the bot to initiate server with #>> [bot number] #:
   7.) have the bot connect to senpai app with #>> [bot number] #@ senpai [location] [port]
   8.) begin using secret connection from senpai app
+  
+  
 usage: Secure version 
   1.) create keystore named jts4e.keys
   2.) run TestBotMain from command line
