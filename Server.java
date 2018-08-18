@@ -185,13 +185,9 @@ public class Server {
         public Runnable linkWithSenpai(String senpai,int location){
             Runnable commands = ()->{
                 try{
-                    SSLSocketFactory secure = (SSLSocketFactory) SSLSocketFactory.getDefault();
-                    SSLSocket connect = (SSLSocket)secure.createSocket(senpai,location);
-                    String[]cipherSuites = connect.getSupportedCipherSuites();
-                    connect.setEnabledCipherSuites(cipherSuites);
-                    //connect.startHandshake();
+                    final ExecutorService tasks = Executors.newFixedThreadPool(10);
 
-                    //Socket connect = new Socket(senpai,location);
+                    Socket connect = new Socket(senpai,location);
 
                     DataInputStream in = new DataInputStream(connect.getInputStream());
                     DataOutputStream out = new DataOutputStream(connect.getOutputStream());
@@ -311,6 +307,7 @@ public class Server {
                                 File text = new File(fileName);
                                 FileOutputStream writer = new FileOutputStream(text);
                                 int length = in.readInt();
+
                                 if(length > 0){
                                     byte[]inFile = new byte[length];
                                     in.readFully(inFile);
