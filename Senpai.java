@@ -36,9 +36,12 @@ public class Senpai {
             KeyManagerFactory factory = KeyManagerFactory.getInstance("SUNX509");
             KeyStore store = KeyStore.getInstance("JKS");
 
-            System.out.println("login password: ");
+            System.out.println("login password: [? for no security]");
             char[]password = console.next().toCharArray();
-            store.load(new FileInputStream("jts4e.keys"),password);
+
+            if(password[0] == '?')return null;
+
+            store.load(new FileInputStream("jts3e.jks"),password);
             factory.init(store,password);
             context.init(factory.getKeyManagers(),null,null);
             Arrays.fill(password,'0');
@@ -67,12 +70,20 @@ public class Senpai {
                     System.setIn(connect);
                 }
                 Scanner console = new Scanner(System.in);
-                SSLServerSocket server = buildSecurity(console,port);
+                SSLServerSocket secureServer = buildSecurity(console,port);
+                ServerSocket server = null;
 
-                System.out.println(server.getLocalPort());
-                System.out.println("waiting for clients at "+server.getLocalPort()+"...");
+                if(secureServer == null) {
+                    server  = new ServerSocket(port);
+                    System.out.println(server.getLocalPort());
+                    System.out.println("waiting for clients at " + server.getLocalPort() + "...");
+                }else{
+                    System.out.println(secureServer.getLocalPort());
+                    System.out.println("waiting for clients at "+secureServer.getLocalPort()+"...");
+                }
+
                 while(true){
-                    Socket sock = server.accept();
+                    Socket sock = (secureServer == null)?server.accept():secureServer.accept();
 
                     System.out.println(id+" successfully connected to socket "+sock.getPort());
 
