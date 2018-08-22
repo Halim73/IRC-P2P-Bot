@@ -20,7 +20,9 @@ usage: Plaintext communications
   8.) begin using secret connection from senpai app
   
   
+
 usage: Secure version 
+
   1.) create keystore named jts4e.keys
   
   2.) run TestBotMain from command line
